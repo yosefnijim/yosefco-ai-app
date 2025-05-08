@@ -10,6 +10,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import date
 import streamlit.components.v1 as components
 from PIL import Image
+import yfinance as yf
 
 st.set_page_config(page_title="Yosefco AI | التقارير والتحليلات", layout="wide")
 st.title("📊 Yosefco AI - واجهة تقارير وتحليلات ذكية")
@@ -25,6 +26,7 @@ zscore_path = f"reports/zscore_peaks_troughs_{selected_date}.csv"
 risk_path = f"reports/risk_metrics_{selected_date}.txt"
 plot_path = f"reports/plot_{selected_date}.html"
 recommendation_log = "reports/recommendation_log.csv"
+sent_flag_file = f"reports/sent_flag_{selected_date}.txt"
 
 col1, col2 = st.columns(2)
 
@@ -103,15 +105,61 @@ else:
 # 📋 جدول توصيات مباشر + حفظ
 st.subheader("📋 التوصيات النشطة")
 recommendations = pd.DataFrame([
-    {"الأصل": "BTC/USD", "التوصية": "شراء", "القوة": 88, "المصدر": "Prophet + Z-Score"},
-    {"الأصل": "XAU/USD", "التوصية": "بيع", "القوة": 72, "المصدر": "RSI + MACD"},
-    {"الأصل": "ETH/USD", "التوصية": "شراء", "القوة": 91, "المصدر": "أنماط + حجم تداول"},
+    {"الأصل": "BTC/USD", "السعر المدخل": 68250.0, "التوصية": "شراء", "القوة": 88, "المصدر": "Prophet + Z-Score"},
+    {"الأصل": "XAU/USD", "السعر المدخل": 2325.4, "التوصية": "بيع", "القوة": 72, "المصدر": "RSI + MACD"},
+    {"الأصل": "ETH/USD", "السعر المدخل": 3180.75, "التوصية": "شراء", "القوة": 91, "المصدر": "أنماط + حجم تداول"},
 ])
-st.dataframe(recommendations.style.highlight_max(axis=0))
 
-if st.button("💾 حفظ التوصيات في CSV"):
-    try:
-        recommendations.to_csv(recommendation_log, index=False)
-        st.success("✅ تم حفظ التوصيات في reports/recommendation_log.csv")
-    except Exception as e:
-        st.error(f"حدث خطأ أثناء الحفظ: {e}")
+# جلب السعر الحالي
+recommendations['السعر الحالي'] = recommendations['الأصل'].apply(
+    lambda x: round(yf.Ticker(x.replace("/", "") + "=X").info.get("regularMarketPrice", 0), 2)
+)
+
+st.dataframe(recommendations["الأصل السعر المدخل السعر الحالي التوصية القوة المصدر".split()].style.highlight_max(axis=0))
+
+try:
+    recommendations.to_csv(recommendation_log, index=False)
+except Exception as e:
+    st.error(f"حدث خطأ أثناء حفظ التوصيات: {e}")
+
+if not os.path.exists(sent_flag_file):
+    EMAIL_SENDER = os.getenv("EMAIL_SENDER")
+    EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+    EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
+    TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+    TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+    recommendations_text = "\n".join([
+        f"{row['الأصل']}: {row['التوصية']} عند سعر {row['السعر المدخل']} (السعر الحالي: {row['السعر الحالي']}) (قوة: {row['القوة']})"
+        for _, row in recommendations.iterrows()
+    ])
+    email_body = f"📋 التوصيات النشطة ليوم {selected_date}:\n\n{recommendations_text}"
+
+    if EMAIL_SENDER and EMAIL_PASSWORD and EMAIL_RECEIVER:
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = EMAIL_SENDER
+            msg['To'] = EMAIL_RECEIVER
+            msg['Subject'] = f"توصيات Yosefco AI - {selected_date}"
+            msg.attach(MIMEText(email_body, 'plain'))
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            server.send_message(msg)
+            server.quit()
+            st.success("📧 تم إرسال التوصيات إلى البريد الإلكتروني.")
+        except Exception as e:
+            st.error(f"فشل إرسال البريد: {e}")
+
+    if TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
+        try:
+            message = f"🚨 توصيات Yosefco AI:\n{email_body}"
+            url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+            payload = {'chat_id': TELEGRAM_CHAT_ID, 'text': message}
+            requests.post(url, data=payload)
+            st.success("📤 تم إرسال التوصيات إلى Telegram.")
+        except Exception as e:
+            st.error(f"فشل إرسال Telegram: {e}")
+
+    with open(sent_flag_file, 'w') as f:
+        f.write("sent")
