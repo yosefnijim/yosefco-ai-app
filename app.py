@@ -9,6 +9,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import date
 import streamlit.components.v1 as components
+from PIL import Image
 
 st.set_page_config(page_title="Yosefco AI | التقارير والتحليلات", layout="wide")
 st.title("📊 Yosefco AI - واجهة تقارير وتحليلات ذكية")
@@ -23,6 +24,7 @@ forecast_path = f"reports/forecast_{selected_date}.csv"
 zscore_path = f"reports/zscore_peaks_troughs_{selected_date}.csv"
 risk_path = f"reports/risk_metrics_{selected_date}.txt"
 plot_path = f"reports/plot_{selected_date}.html"
+recommendation_log = "reports/recommendation_log.csv"
 
 col1, col2 = st.columns(2)
 
@@ -30,6 +32,8 @@ if os.path.exists(report_path):
     df = pd.read_csv(report_path)
     col1.subheader("📋 التقرير اليومي")
     col1.dataframe(df)
+else:
+    df = pd.DataFrame()
 
 if os.path.exists(forecast_path):
     df_forecast = pd.read_csv(forecast_path)
@@ -70,6 +74,14 @@ st.subheader("📐 اكتشاف الأنماط البيانية")
 pattern_detected = "✅ تم رصد نمط رأس وكتفين في BTC خلال الجلسة الماضية."
 st.write(pattern_detected)
 
+# 🖼️ رفع صورة تحليل
+st.subheader("🖼️ تحليل الشارت من صورة")
+uploaded_file = st.file_uploader("قم برفع صورة الشارت (PNG أو JPG)", type=["png", "jpg", "jpeg"])
+if uploaded_file is not None:
+    image = Image.open(uploaded_file)
+    st.image(image, caption="📉 الشارت الذي تم رفعه", use_column_width=True)
+    st.info("✅ تم رفع الصورة بنجاح، سيتم دمج التحليل بالرؤية الحاسوبية لاحقًا.")
+
 st.subheader("📈 مؤشرات الحجم والتذبذب")
 st.write("- مؤشر ATR يشير إلى تذبذب مرتفع في السوق.")
 st.write("- حجم التداول مرتفع بنسبة 23% عن المتوسط الأسبوعي.")
@@ -88,96 +100,18 @@ elif trade_result == "خسارة":
 else:
     st.info("⏳ لم يتم تنفيذ صفقة بعد")
 
-st.subheader("🔗 ارتباط الأصول")
-if 'df' in locals():
+# 📋 جدول توصيات مباشر + حفظ
+st.subheader("📋 التوصيات النشطة")
+recommendations = pd.DataFrame([
+    {"الأصل": "BTC/USD", "التوصية": "شراء", "القوة": 88, "المصدر": "Prophet + Z-Score"},
+    {"الأصل": "XAU/USD", "التوصية": "بيع", "القوة": 72, "المصدر": "RSI + MACD"},
+    {"الأصل": "ETH/USD", "التوصية": "شراء", "القوة": 91, "المصدر": "أنماط + حجم تداول"},
+])
+st.dataframe(recommendations.style.highlight_max(axis=0))
+
+if st.button("💾 حفظ التوصيات في CSV"):
     try:
-        prices_df = df[[col for col in df.columns if col.startswith("Close_")]]
-        corr = prices_df.corr()
-        st.dataframe(corr.style.background_gradient(cmap="coolwarm"))
-    except:
-        st.info("لا توجد بيانات كافية لحساب مصفوفة الارتباط.")
-
-st.subheader("📐 حاسبة حجم الصفقة")
-risk_capital = st.number_input("رأس المال المخصص ($):", value=1000.0)
-risk_percent = st.slider("نسبة المخاطرة:", 0.5, 10.0, step=0.5)
-stop_loss = st.number_input("عدد النقاط بين الدخول والإيقاف:", value=50.0)
-if stop_loss > 0:
-    position_size = (risk_capital * (risk_percent / 100)) / stop_loss
-    st.success(f"💡 الحجم المقترح: {position_size:.2f} وحدة")
-
-st.sidebar.subheader("🧠 نمط المتداول")
-trader_type = st.sidebar.radio("اختر نوعك:", ["محافظ", "مغامر"])
-
-st.sidebar.subheader("📣 إعدادات التنبيهات")
-sound_alert = st.sidebar.checkbox("🔊 تفعيل التنبيه الصوتي", value=True)
-price_threshold = st.sidebar.slider("🔔 حد السعر (٪):", 0.5, 10.0, 1.0)
-volume_threshold = st.sidebar.slider("📊 حد الحجم (٪):", 10, 100, 20)
-custom_signal = st.sidebar.text_input("📌 إشارة مخصصة:", value="Breakout")
-
-trigger_alert = False
-
-# ✅ تحقق آمن قبل تنفيذ التنبيهات
-if 'df' in locals():
-    if 'price_change' in df.columns and abs(df['price_change'].iloc[-1]) >= price_threshold:
-        st.warning(f"📊 السعر تغير بنسبة {df['price_change'].iloc[-1]:.2f}%")
-        trigger_alert = True
-
-    if 'volume_change' in df.columns and df['volume_change'].iloc[-1] >= volume_threshold:
-        st.warning(f"📈 حجم التداول ارتفع بنسبة {df['volume_change'].iloc[-1]:.2f}%")
-        trigger_alert = True
-
-    if custom_signal.lower() in df.to_string().lower():
-        st.success(f"✅ تم العثور على: {custom_signal}")
-        trigger_alert = True
-
-if trigger_alert:
-    st.balloons()
-    st.info("🎯 تم تفعيل التنبيه بناءً على الإعدادات.")
-
-    if sound_alert:
-        components.html("""
-        <audio autoplay>
-          <source src='https://actions.google.com/sounds/v1/alarms/beep_short.ogg' type='audio/ogg'>
-        </audio>
-        """, height=0)
-
-    sender = os.getenv("EMAIL_SENDER")
-    receiver = os.getenv("EMAIL_RECEIVER")
-    password = os.getenv("EMAIL_PASSWORD")
-    if sender and receiver and password:
-        try:
-            msg = MIMEMultipart()
-            msg['From'] = sender
-            msg['To'] = receiver
-            msg['Subject'] = "🚨 تنبيه Yosefco AI"
-            body = f"تنبيه بتاريخ {selected_date} بناءً على الإعدادات المخصصة."
-            msg.attach(MIMEText(body, 'plain'))
-            server = smtplib.SMTP('smtp.gmail.com', 587)
-            server.starttls()
-            server.login(sender, password)
-            server.send_message(msg)
-            server.quit()
-            st.success("📧 تم إرسال تنبيه إلى البريد الإلكتروني.")
-        except Exception as e:
-            st.error(f"خطأ إرسال البريد: {e}")
-
-    TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-    TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-    if TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
-        alert_msg = f"🚨 تنبيه Yosefco AI:\nتاريخ: {selected_date}\nتم تفعيل أحد التنبيهات."
-        try:
-            url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-            payload = {'chat_id': TELEGRAM_CHAT_ID, 'text': alert_msg}
-            requests.post(url, data=payload)
-            st.success("📤 تم إرسال التنبيه إلى Telegram.")
-        except Exception as e:
-            st.error(f"فشل إرسال Telegram: {e}")
-
-st.subheader("📄 تقرير تلقائي من الذكاء الاصطناعي")
-ai_summary = f"""
-📌 تقرير {selected_date}:
-- حركة واضحة في الأسواق بدعم من إشارات Prophet.
-- زخم واضح وتحذيرات من Z-Score.
-- فرصة محتملة بناءً على تحركات المحافظ.
-"""
-st.text_area("🧠 الملخص:", value=ai_summary, height=200)
+        recommendations.to_csv(recommendation_log, index=False)
+        st.success("✅ تم حفظ التوصيات في reports/recommendation_log.csv")
+    except Exception as e:
+        st.error(f"حدث خطأ أثناء الحفظ: {e}")
