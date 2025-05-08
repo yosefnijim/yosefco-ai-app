@@ -1,2 +1,3 @@
-# Yosefco AI - Streamlit interface
-print('Replace with full app content.')
+# Yosefco AI App Placeholder
+# الصق الكود الكامل هنا
+print('Yosefco AI running')
