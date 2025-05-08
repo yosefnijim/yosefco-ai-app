@@ -118,7 +118,7 @@ def get_price(symbol):
     except Exception:
         return "N/A"
 
-recommendations['السعر الحالي'] = recommendations['الأصل'].apply(get_price) + "=X").info.get("regularMarketPrice", 0), 2)
+recommendations['السعر الحالي'] = recommendations['الأصل'].apply(get_price).info.get("regularMarketPrice", 0), 2)
 )
 
 st.dataframe(recommendations["الأصل السعر المدخل السعر الحالي التوصية القوة المصدر".split()].style.highlight_max(axis=0))
