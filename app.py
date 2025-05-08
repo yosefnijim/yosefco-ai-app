@@ -111,8 +111,14 @@ recommendations = pd.DataFrame([
 ])
 
 # جلب السعر الحالي
-recommendations['السعر الحالي'] = recommendations['الأصل'].apply(
-    lambda x: round(yf.Ticker(x.replace("/", "") + "=X").info.get("regularMarketPrice", 0), 2)
+def get_price(symbol):
+    try:
+        ticker = yf.Ticker(symbol.replace("/", "") + "=X")
+        return round(ticker.info.get("regularMarketPrice", 0), 2)
+    except Exception:
+        return "N/A"
+
+recommendations['السعر الحالي'] = recommendations['الأصل'].apply(get_price) + "=X").info.get("regularMarketPrice", 0), 2)
 )
 
 st.dataframe(recommendations["الأصل السعر المدخل السعر الحالي التوصية القوة المصدر".split()].style.highlight_max(axis=0))
