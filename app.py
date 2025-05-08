@@ -59,7 +59,6 @@ if os.path.exists(plot_path):
 st.sidebar.markdown("---")
 st.sidebar.info("تم تطوير هذه الواجهة لعرض تقارير Yosefco AI بدقة ومرونة.")
 
-# 🧠 تحليل مشاعر المؤثرين (محاكاة)
 st.subheader("🧵 تحليل مشاعر المؤثرين")
 elon_sentiment = "⬆️ Elon Musk يدعم العملات الرقمية اليوم: \"Bitcoin is the future\""
 cz_sentiment = "⬇️ CZ يشير إلى تقلبات قوية في السوق ويحث على الحذر."
@@ -67,22 +66,18 @@ st.write("**تحليل تغريدات اليوم:**")
 st.write(f"- {elon_sentiment}")
 st.write(f"- {cz_sentiment}")
 
-# 🔍 تحليل الأنماط البيانية (محاكاة - رأس وكتفين)
 st.subheader("📐 اكتشاف الأنماط البيانية")
 pattern_detected = "✅ تم رصد نمط رأس وكتفين في BTC خلال الجلسة الماضية."
 st.write(pattern_detected)
 
-# 📊 تحليل التذبذب والحجم
 st.subheader("📈 مؤشرات الحجم والتذبذب")
 st.write("- مؤشر ATR يشير إلى تذبذب مرتفع في السوق.")
 st.write("- حجم التداول مرتفع بنسبة 23% عن المتوسط الأسبوعي.")
 
-# 🤖 تحليل شخصي للتنبيهات المتعددة الشروط (محاكاة)
 st.subheader("🧠 تنبيه مركب متعدد الشروط")
 combined_alert = "📢 MACD صاعد + RSI أقل من 30 + تقاطع MA50/MA200 → إشارة شراء محتملة."
 st.success(combined_alert)
 
-# 🧪 محفظة افتراضية
 st.subheader("💼 بيئة تداول افتراضية")
 virtual_balance = st.number_input("💰 رصيد المحفظة الافتراضية ($):", value=10000.0)
 trade_result = st.radio("📈 نتيجة آخر صفقة افتراضية:", ["ربح", "خسارة", "لم تُنفذ"])
@@ -93,16 +88,15 @@ elif trade_result == "خسارة":
 else:
     st.info("⏳ لم يتم تنفيذ صفقة بعد")
 
-# 🔗 ارتباط الأصول
 st.subheader("🔗 ارتباط الأصول")
-try:
-    prices_df = df[[col for col in df.columns if col.startswith("Close_")]]
-    corr = prices_df.corr()
-    st.dataframe(corr.style.background_gradient(cmap="coolwarm"))
-except:
-    st.info("لا توجد بيانات كافية لحساب مصفوفة الارتباط.")
+if 'df' in locals():
+    try:
+        prices_df = df[[col for col in df.columns if col.startswith("Close_")]]
+        corr = prices_df.corr()
+        st.dataframe(corr.style.background_gradient(cmap="coolwarm"))
+    except:
+        st.info("لا توجد بيانات كافية لحساب مصفوفة الارتباط.")
 
-# 📐 حاسبة حجم الصفقة
 st.subheader("📐 حاسبة حجم الصفقة")
 risk_capital = st.number_input("رأس المال المخصص ($):", value=1000.0)
 risk_percent = st.slider("نسبة المخاطرة:", 0.5, 10.0, step=0.5)
@@ -111,7 +105,6 @@ if stop_loss > 0:
     position_size = (risk_capital * (risk_percent / 100)) / stop_loss
     st.success(f"💡 الحجم المقترح: {position_size:.2f} وحدة")
 
-# إعدادات مخصصة
 st.sidebar.subheader("🧠 نمط المتداول")
 trader_type = st.sidebar.radio("اختر نوعك:", ["محافظ", "مغامر"])
 
@@ -121,17 +114,21 @@ price_threshold = st.sidebar.slider("🔔 حد السعر (٪):", 0.5, 10.0, 1.0
 volume_threshold = st.sidebar.slider("📊 حد الحجم (٪):", 10, 100, 20)
 custom_signal = st.sidebar.text_input("📌 إشارة مخصصة:", value="Breakout")
 
-# التحقق من التنبيه
 trigger_alert = False
-if 'price_change' in df.columns and abs(df['price_change'].iloc[-1]) >= price_threshold:
-    st.warning(f"📊 السعر تغير بنسبة {df['price_change'].iloc[-1]:.2f}%")
-    trigger_alert = True
-if 'volume_change' in df.columns and df['volume_change'].iloc[-1] >= volume_threshold:
-    st.warning(f"📈 حجم التداول ارتفع بنسبة {df['volume_change'].iloc[-1]:.2f}%")
-    trigger_alert = True
-if custom_signal.lower() in df.to_string().lower():
-    st.success(f"✅ تم العثور على: {custom_signal}")
-    trigger_alert = True
+
+# ✅ تحقق آمن قبل تنفيذ التنبيهات
+if 'df' in locals():
+    if 'price_change' in df.columns and abs(df['price_change'].iloc[-1]) >= price_threshold:
+        st.warning(f"📊 السعر تغير بنسبة {df['price_change'].iloc[-1]:.2f}%")
+        trigger_alert = True
+
+    if 'volume_change' in df.columns and df['volume_change'].iloc[-1] >= volume_threshold:
+        st.warning(f"📈 حجم التداول ارتفع بنسبة {df['volume_change'].iloc[-1]:.2f}%")
+        trigger_alert = True
+
+    if custom_signal.lower() in df.to_string().lower():
+        st.success(f"✅ تم العثور على: {custom_signal}")
+        trigger_alert = True
 
 if trigger_alert:
     st.balloons()
@@ -144,7 +141,6 @@ if trigger_alert:
         </audio>
         """, height=0)
 
-    # إرسال بريد
     sender = os.getenv("EMAIL_SENDER")
     receiver = os.getenv("EMAIL_RECEIVER")
     password = os.getenv("EMAIL_PASSWORD")
@@ -165,7 +161,6 @@ if trigger_alert:
         except Exception as e:
             st.error(f"خطأ إرسال البريد: {e}")
 
-    # إرسال Telegram
     TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
     TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
     if TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
@@ -178,7 +173,6 @@ if trigger_alert:
         except Exception as e:
             st.error(f"فشل إرسال Telegram: {e}")
 
-# تقرير توليدي
 st.subheader("📄 تقرير تلقائي من الذكاء الاصطناعي")
 ai_summary = f"""
 📌 تقرير {selected_date}:
