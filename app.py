@@ -126,7 +126,7 @@ recommendations['فرق السعر (%)'] = recommendations.apply(
     if isinstance(row['السعر الحالي'], (int, float)) else 'N/A', axis=1
 )
 
-st.dataframe(filtered.style.format("{:.2f}", subset=['السعر المدخل', 'السعر الحالي', 'فرق السعر (%)']))
+st.dataframe(recommendations.style.format("{:.2f}", subset=['السعر المدخل', 'السعر الحالي', 'فرق السعر (%)']))
 
 try:
     recommendations.to_csv(recommendation_log, index=False)
