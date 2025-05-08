@@ -104,6 +104,16 @@ else:
 
 # 📋 جدول توصيات مباشر + حفظ
 st.subheader("📋 التوصيات النشطة")
+
+# فلترة حسب نوع التوصية أو فرق السعر
+selected_type = st.selectbox("🔍 نوع التوصية", ["الكل"] + sorted(recommendations['التوصية'].unique()))
+min_diff, max_diff = st.slider("🎯 نطاق فرق السعر (%)", -100.0, 100.0, (-100.0, 100.0))
+
+filtered = recommendations.copy()
+if selected_type != "الكل":
+    filtered = filtered[filtered['التوصية'] == selected_type]
+
+filtered = filtered[filtered['فرق السعر (%)'].apply(lambda x: isinstance(x, (int, float)) and min_diff <= x <= max_diff)]
 recommendations = pd.DataFrame([
     {"الأصل": "BTC/USD", "السعر المدخل": 68250.0, "التوصية": "شراء", "القوة": 88, "المصدر": "Prophet + Z-Score"},
     {"الأصل": "XAU/USD", "السعر المدخل": 2325.4, "التوصية": "بيع", "القوة": 72, "المصدر": "RSI + MACD"},
@@ -118,10 +128,24 @@ def get_price(symbol):
     except Exception:
         return "N/A"
 
-recommendations['السعر الحالي'] = recommendations['الأصل'].apply(get_price), 2)
+recommendations['السعر الحالي'] = recommendations['الأصل'].apply(get_price)
+
+# حساب الفرق بين السعر المدخل والحالي كنسبة مئوية
+recommendations['فرق السعر (%)'] = recommendations.apply(
+    lambda row: round(((row['السعر الحالي'] - row['السعر المدخل']) / row['السعر المدخل']) * 100, 2)
+    if isinstance(row['السعر الحالي'], (int, float)) else 'N/A', axis=1
 )
 
-st.dataframe(recommendations["الأصل السعر المدخل السعر الحالي التوصية القوة المصدر".split()].style.highlight_max(axis=0))
+st.dataframe(
+    filtered["الأصل السعر المدخل السعر الحالي فرق السعر (%) التوصية القوة المصدر".split()].style.apply(
+        lambda x: [
+            'background-color: #d4edda' if isinstance(val, (int, float)) and val > 0 else
+            'background-color: #f8d7da' if isinstance(val, (int, float)) and val < 0 else
+            '' for val in x
+        ] if x.name == 'فرق السعر (%)' else ['']*len(x),
+        axis=1
+    )
+)
 
 try:
     recommendations.to_csv(recommendation_log, index=False)
